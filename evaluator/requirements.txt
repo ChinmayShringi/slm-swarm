@@ -1,0 +1,10 @@
+requests==2.31.0
+tqdm==4.66.1
+pandas==2.1.4
+rouge-score==0.1.2
+bert-score==0.3.13
+transformers==4.36.2
+torch==2.1.2
+spacy==3.7.2
+numpy==1.26.3
+

@@ -1,0 +1,38 @@
+# Environment files
+.env
+.env.local
+
+# Docker volumes
+models/
+
+# Results
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Datasets (large files)
+dataset/samsum.jsonl
+dataset/qmsum.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
