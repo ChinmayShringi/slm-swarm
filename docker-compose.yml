@@ -45,11 +45,11 @@ services:
     build: ./coordinator
     container_name: coordinator
     environment:
-      - WORKERS=["http://worker_qwen:11434","http://worker_qwen:11434","http://worker_qwen:11434"]
-      - MODELS=["qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct"]
-      - WORKER_TEMPERATURES=[0.2,0.5,0.7]
-      - JUDGE=
-      - JUDGE_MODEL=
+      - WORKERS=["http://worker_qwen:11434","http://worker_llama:11434","http://worker_mistral:11434"]
+      - MODELS=["qwen2.5:7b-instruct","llama3.1:8b-instruct","mistral:7b-instruct"]
+      - WORKER_TEMPERATURES=[0.2,0.2,0.2]
+      - JUDGE=http://judge_phi:11434
+      - JUDGE_MODEL=phi3:3.8b
       - CONSENSUS_METHOD=${CONSENSUS_METHOD:-cosine}
       - CONSENSUS_THRESHOLD=${CONSENSUS_THRESHOLD:-0.3}
       - SWARM_TYPE=heterogeneous
@@ -66,6 +66,7 @@ services:
       - worker_qwen
       - worker_llama
       - worker_mistral
+      - judge_phi
     ports:
       - "8000:8000"
     networks:
