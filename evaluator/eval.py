@@ -35,6 +35,8 @@ COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://coordinator:8000")
 DATASET_PATH = os.getenv("DATASET_PATH", "/app/dataset/messages.jsonl")
 RESULTS_DIR = os.getenv("RESULTS_DIR", "/app/results")
 ENABLE_BIG_MODEL = os.getenv("ENABLE_BIG_MODEL", "true").lower() == "true"
+RUN_ID = os.getenv("RUN_ID", "")  # Optional: specify run ID to resume
+CHECKPOINT_INTERVAL = int(os.getenv("CHECKPOINT_INTERVAL", "10"))  # Save checkpoint every N examples
 
 
 def load_dataset(path: str) -> List[Dict[str, Any]]:
@@ -170,8 +172,37 @@ def estimate_cost(text: str, model_type: str) -> float:
         return 0.0
 
 
+def load_checkpoint(run_dir: Path) -> set:
+    """Load already processed IDs from checkpoint"""
+    outputs_file = run_dir / "outputs.jsonl"
+    processed_ids = set()
+    
+    if outputs_file.exists():
+        try:
+            with open(outputs_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        data = json.loads(line)
+                        processed_ids.add(data["id"])
+            print(f"✓ Loaded checkpoint: {len(processed_ids)} examples already processed")
+        except Exception as e:
+            print(f"Warning: Could not load checkpoint: {e}")
+    
+    return processed_ids
+
+
+def save_checkpoint(run_dir: Path, result: Dict[str, Any]):
+    """Append single result to outputs file (checkpoint)"""
+    outputs_file = run_dir / "outputs.jsonl"
+    try:
+        with open(outputs_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(result) + "\n")
+    except Exception as e:
+        print(f"Warning: Could not save checkpoint: {e}")
+
+
 def run_evaluation():
-    """Main evaluation loop"""
+    """Main evaluation loop with checkpoint/resume support"""
     print(f"Loading dataset from {DATASET_PATH}...")
     dataset = load_dataset(DATASET_PATH)
     print(f"Loaded {len(dataset)} examples")
@@ -194,20 +225,37 @@ def run_evaluation():
                 print(f"Last error: {e}")
                 return
     
-    # Create results directory
-    run_id = uuid.uuid4().hex[:8]
+    # Create or resume run directory
+    if RUN_ID:
+        run_id = RUN_ID
+        print(f"Resuming run: {run_id}")
+    else:
+        run_id = uuid.uuid4().hex[:8]
+        print(f"Starting new run: {run_id}")
+    
     run_dir = Path(RESULTS_DIR) / f"run_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load checkpoint (already processed IDs)
+    processed_ids = load_checkpoint(run_dir)
+    
+    # Filter dataset to only unprocessed examples
+    remaining_dataset = [item for item in dataset if item["id"] not in processed_ids]
+    
+    if len(remaining_dataset) == 0:
+        print(f"✓ All examples already processed! Loading existing results for metrics...")
+        dataset_to_process = []
+    else:
+        print(f"Processing {len(remaining_dataset)} remaining examples (out of {len(dataset)} total)")
+        dataset_to_process = remaining_dataset
+    
     print(f"Results will be saved to: {run_dir}")
     
-    # Collect results
-    results = []
-    swarm_summaries = []
-    big_summaries = []
-    references = []
-    
+    # Process remaining examples
     print("\nRunning evaluation...")
-    for item in tqdm(dataset, desc="Processing"):
+    examples_processed = 0
+    
+    for item in tqdm(dataset_to_process, desc="Processing"):
         payload = {
             "id": item["id"],
             "message": item["message"],
@@ -216,7 +264,6 @@ def run_evaluation():
         
         # Get reference
         ref_tldr = item.get("reference", {}).get("tldr", "")
-        references.append(ref_tldr)
         
         # Call swarm endpoint
         swarm_response, swarm_latency = call_endpoint("/summarize", payload)
@@ -230,8 +277,6 @@ def run_evaluation():
             swarm_candidates = swarm_response.get("candidates", [])
             consensus_metadata = swarm_response.get("consensus_metadata", {})
         
-        swarm_summaries.append(swarm_summary)
-        
         # Call big model endpoint (if enabled)
         if ENABLE_BIG_MODEL:
             big_response, big_latency = call_endpoint("/summarize_big", payload)
@@ -243,8 +288,6 @@ def run_evaluation():
         else:
             big_summary = "DISABLED"
             big_latency = 0.0
-        
-        big_summaries.append(big_summary)
         
         # Compute factuality for both
         swarm_factuality = check_factuality(item["message"], swarm_summary) if not swarm_summary.startswith("ERROR") else {}
@@ -264,14 +307,38 @@ def run_evaluation():
             "big_latency": big_latency,
             "big_factuality": big_factuality
         }
-        results.append(result)
+        
+        # Save checkpoint incrementally
+        save_checkpoint(run_dir, result)
+        examples_processed += 1
+        
+        # Periodic status update
+        if examples_processed % CHECKPOINT_INTERVAL == 0:
+            print(f"\n[CHECKPOINT] Processed {examples_processed}/{len(dataset_to_process)} examples")
     
-    # Save detailed outputs
+    print(f"\n✓ Processing complete: {examples_processed} new examples")
+    
+    # Load ALL results (including previously processed) for final metrics
+    print("\nLoading all results for metrics calculation...")
+    all_results = []
     outputs_file = run_dir / "outputs.jsonl"
-    with open(outputs_file, "w", encoding="utf-8") as f:
-        for result in results:
-            f.write(json.dumps(result) + "\n")
-    print(f"\nDetailed outputs saved to: {outputs_file}")
+    
+    if outputs_file.exists():
+        with open(outputs_file, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    all_results.append(json.loads(line))
+    
+    print(f"Total results loaded: {len(all_results)}")
+    
+    if len(all_results) == 0:
+        print("ERROR: No results to process!")
+        return
+    
+    # Extract data for metrics (use all_results, not just new ones)
+    swarm_summaries = [r["swarm_summary"] for r in all_results]
+    big_summaries = [r["big_summary"] for r in all_results]
+    references = [r["reference"] for r in all_results]
     
     # Filter out errors for metric computation
     valid_swarm = [(s, r) for s, r in zip(swarm_summaries, references) if not s.startswith("ERROR")]
@@ -304,9 +371,9 @@ def run_evaluation():
         bert_big = compute_bertscore([r for _, r in valid_big], [s for s, _ in valid_big])
         metrics.update({f"big_{k}": v for k, v in bert_big.items()})
     
-    # Latency percentiles
-    swarm_latencies = [r["swarm_latency"] for r in results if r["swarm_latency"] > 0]
-    big_latencies = [r["big_latency"] for r in results if r["big_latency"] > 0]
+    # Latency percentiles (use all_results)
+    swarm_latencies = [r["swarm_latency"] for r in all_results if r["swarm_latency"] > 0]
+    big_latencies = [r["big_latency"] for r in all_results if r["big_latency"] > 0]
     
     if swarm_latencies:
         metrics["swarm_latency_p50"] = float(pd.Series(swarm_latencies).quantile(0.5))
@@ -318,11 +385,11 @@ def run_evaluation():
         metrics["big_latency_p95"] = float(pd.Series(big_latencies).quantile(0.95))
         metrics["big_latency_mean"] = float(pd.Series(big_latencies).mean())
     
-    # Factuality metrics
+    # Factuality metrics (use all_results)
     swarm_hallucinations = [r["swarm_factuality"].get("flagged_as_hallucination", False) 
-                           for r in results if r.get("swarm_factuality")]
+                           for r in all_results if r.get("swarm_factuality")]
     big_hallucinations = [r["big_factuality"].get("flagged_as_hallucination", False) 
-                         for r in results if r.get("big_factuality")]
+                         for r in all_results if r.get("big_factuality")]
     
     if swarm_hallucinations:
         metrics["swarm_hallucination_rate"] = sum(swarm_hallucinations) / len(swarm_hallucinations)
@@ -330,13 +397,13 @@ def run_evaluation():
     if big_hallucinations:
         metrics["big_hallucination_rate"] = sum(big_hallucinations) / len(big_hallucinations)
     
-    # Consensus metrics (from consensus_metadata)
+    # Consensus metrics (from consensus_metadata) (use all_results)
     consensus_scores = []
     outlier_detected_count = 0
     consensus_confidences = []
     consensus_similarities = []
     
-    for r in results:
+    for r in all_results:
         meta = r.get("consensus_metadata", {})
         if meta and meta.get("method") == "cosine":
             if "consensus_scores" in meta:
@@ -351,23 +418,24 @@ def run_evaluation():
     if consensus_similarities:
         metrics["swarm_consensus_avg_similarity"] = float(np.mean(consensus_similarities))
     
-    if results:
-        metrics["swarm_outlier_detected_rate"] = outlier_detected_count / len(results)
+    if all_results:
+        metrics["swarm_outlier_detected_rate"] = outlier_detected_count / len(all_results)
     
     if consensus_confidences:
         metrics["swarm_consensus_confidence"] = float(np.mean(consensus_confidences))
     
-    # Cost estimates
-    total_tokens_swarm = sum(len((r["message"] + r["swarm_summary"]).split()) for r in results) * 0.75
-    total_tokens_big = sum(len((r["message"] + r["big_summary"]).split()) for r in results if r["big_summary"] != "DISABLED") * 0.75
+    # Cost estimates (use all_results)
+    total_tokens_swarm = sum(len((r["message"] + r["swarm_summary"]).split()) for r in all_results) * 0.75
+    total_tokens_big = sum(len((r["message"] + r["big_summary"]).split()) for r in all_results if r["big_summary"] != "DISABLED") * 0.75
     
     metrics["swarm_estimated_cost"] = (total_tokens_swarm / 1000) * 0.0001 * 4  # 3 workers + judge
     metrics["big_estimated_cost"] = (total_tokens_big / 1000) * 0.0008
     
     # Sample counts
-    metrics["total_samples"] = len(dataset)
+    metrics["total_samples"] = len(all_results)
     metrics["swarm_valid_samples"] = len(valid_swarm)
     metrics["big_valid_samples"] = len(valid_big)
+    metrics["examples_processed_this_run"] = examples_processed
     
     # Save metrics CSV
     metrics_file = run_dir / "metrics.csv"

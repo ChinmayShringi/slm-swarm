@@ -28,7 +28,20 @@ def prepare_samsum(output_path: str, split: str = "test"):
     print(f"Loading SAMSum dataset (split: {split})...")
     
     try:
-        dataset = load_dataset("samsum", split=split)
+        # Try different possible names for SAMSum
+        dataset = None
+        for name in ["samsum", "Samsung/samsum", "knkarthick/samsum"]:
+            try:
+                print(f"Trying dataset name: {name}")
+                dataset = load_dataset(name, split=split)
+                print(f"✓ Successfully loaded from: {name}")
+                break
+            except:
+                continue
+        
+        if dataset is None:
+            raise Exception("Could not find SAMSum dataset")
+            
     except Exception as e:
         print(f"Error loading dataset: {e}")
         print("\nAlternatively, you can download from: https://huggingface.co/datasets/samsum")
