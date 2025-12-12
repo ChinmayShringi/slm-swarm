@@ -1,0 +1,113 @@
+version: "3.8"
+
+# Heterogeneous swarm: 6 workers (Qwen, Llama, Mistral, Gemma, TinyLlama, Phi)
+
+services:
+  worker_qwen:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_qwen
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_llama:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_llama
+    volumes:
+      - ./models/llama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_mistral:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_mistral
+    volumes:
+      - ./models/mistral:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_gemma:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_gemma
+    volumes:
+      - ./models/gemma:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_tinyllama:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_tinyllama
+    volumes:
+      - ./models/tinyllama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_phi:
+    image: ollama/ollama:latest
+    container_name: hetero6_worker_phi
+    volumes:
+      - ./models/phi:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  coordinator:
+    build: ./coordinator
+    container_name: hetero6_coordinator
+    environment:
+      - WORKERS=["http://worker_qwen:11434","http://worker_llama:11434","http://worker_mistral:11434","http://worker_gemma:11434","http://worker_tinyllama:11434","http://worker_phi:11434"]
+      - MODELS=["qwen2.5:7b-instruct","llama3.1:8b","mistral:7b-instruct","gemma2:2b","tinyllama:latest","phi3:3.8b"]
+      - WORKER_TEMPERATURES=[0.2,0.2,0.2,0.2,0.2,0.2]
+      - CONSENSUS_METHOD=cosine
+      - CONSENSUS_THRESHOLD=0.3
+      - SWARM_TYPE=heterogeneous
+      - BIGMODEL_URL=${BIGMODEL_URL:-}
+      - BIGMODEL_MODEL=${BIGMODEL_MODEL:-}
+      - BIGMODEL_TYPE=${BIGMODEL_TYPE:-openai}
+      - BIGMODEL_API_KEY=${BIGMODEL_API_KEY:-}
+    depends_on:
+      - worker_qwen
+      - worker_llama
+      - worker_mistral
+      - worker_gemma
+      - worker_tinyllama
+      - worker_phi
+    ports:
+      - "8006:8000"
+    networks:
+      - slm_net
+
+  evaluator:
+    build: ./evaluator
+    container_name: hetero6_evaluator
+    environment:
+      - COORDINATOR_URL=http://coordinator:8000
+      - DATASET_PATH=/app/dataset/samsum.jsonl
+      - RESULTS_DIR=/app/results
+      - ENABLE_BIG_MODEL=false
+    volumes:
+      - ./dataset:/app/dataset
+      - ./results:/app/results
+    depends_on:
+      - coordinator
+    networks:
+      - slm_net
+    profiles:
+      - evaluation
+
+networks:
+  slm_net:
+    driver: bridge
+

@@ -1,0 +1,245 @@
+version: "3.8"
+
+# Heterogeneous swarm: 18 workers (3x each: Qwen, Llama, Mistral, Gemma, TinyLlama, Phi)
+
+services:
+  worker_qwen_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_qwen_1
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_qwen_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_qwen_2
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_qwen_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_qwen_3
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_llama_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_llama_1
+    volumes:
+      - ./models/llama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_llama_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_llama_2
+    volumes:
+      - ./models/llama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_llama_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_llama_3
+    volumes:
+      - ./models/llama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_mistral_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_mistral_1
+    volumes:
+      - ./models/mistral:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_mistral_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_mistral_2
+    volumes:
+      - ./models/mistral:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_mistral_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_mistral_3
+    volumes:
+      - ./models/mistral:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_gemma_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_gemma_1
+    volumes:
+      - ./models/gemma:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_gemma_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_gemma_2
+    volumes:
+      - ./models/gemma:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_gemma_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_gemma_3
+    volumes:
+      - ./models/gemma:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_tinyllama_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_tinyllama_1
+    volumes:
+      - ./models/tinyllama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_tinyllama_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_tinyllama_2
+    volumes:
+      - ./models/tinyllama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_tinyllama_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_tinyllama_3
+    volumes:
+      - ./models/tinyllama:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_phi_1:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_phi_1
+    volumes:
+      - ./models/phi:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_phi_2:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_phi_2
+    volumes:
+      - ./models/phi:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_phi_3:
+    image: ollama/ollama:latest
+    container_name: hetero18_worker_phi_3
+    volumes:
+      - ./models/phi:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  coordinator:
+    build: ./coordinator
+    container_name: hetero18_coordinator
+    environment:
+      - WORKERS=["http://worker_qwen_1:11434","http://worker_qwen_2:11434","http://worker_qwen_3:11434","http://worker_llama_1:11434","http://worker_llama_2:11434","http://worker_llama_3:11434","http://worker_mistral_1:11434","http://worker_mistral_2:11434","http://worker_mistral_3:11434","http://worker_gemma_1:11434","http://worker_gemma_2:11434","http://worker_gemma_3:11434","http://worker_tinyllama_1:11434","http://worker_tinyllama_2:11434","http://worker_tinyllama_3:11434","http://worker_phi_1:11434","http://worker_phi_2:11434","http://worker_phi_3:11434"]
+      - MODELS=["qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","llama3.1:8b","llama3.1:8b","llama3.1:8b","mistral:7b-instruct","mistral:7b-instruct","mistral:7b-instruct","gemma2:2b","gemma2:2b","gemma2:2b","tinyllama:latest","tinyllama:latest","tinyllama:latest","phi3:3.8b","phi3:3.8b","phi3:3.8b"]
+      - WORKER_TEMPERATURES=[0.2,0.3,0.4,0.2,0.3,0.4,0.2,0.3,0.4,0.2,0.3,0.4,0.2,0.3,0.4,0.2,0.3,0.4]
+      - CONSENSUS_METHOD=cosine
+      - CONSENSUS_THRESHOLD=0.3
+      - SWARM_TYPE=heterogeneous
+      - BIGMODEL_URL=${BIGMODEL_URL:-}
+      - BIGMODEL_MODEL=${BIGMODEL_MODEL:-}
+      - BIGMODEL_TYPE=${BIGMODEL_TYPE:-openai}
+      - BIGMODEL_API_KEY=${BIGMODEL_API_KEY:-}
+    depends_on:
+      - worker_qwen_1
+      - worker_qwen_2
+      - worker_qwen_3
+      - worker_llama_1
+      - worker_llama_2
+      - worker_llama_3
+      - worker_mistral_1
+      - worker_mistral_2
+      - worker_mistral_3
+      - worker_gemma_1
+      - worker_gemma_2
+      - worker_gemma_3
+      - worker_tinyllama_1
+      - worker_tinyllama_2
+      - worker_tinyllama_3
+      - worker_phi_1
+      - worker_phi_2
+      - worker_phi_3
+    ports:
+      - "8018:8000"
+    networks:
+      - slm_net
+
+  evaluator:
+    build: ./evaluator
+    container_name: hetero18_evaluator
+    environment:
+      - COORDINATOR_URL=http://coordinator:8000
+      - DATASET_PATH=/app/dataset/samsum.jsonl
+      - RESULTS_DIR=/app/results
+      - ENABLE_BIG_MODEL=false
+    volumes:
+      - ./dataset:/app/dataset
+      - ./results:/app/results
+    depends_on:
+      - coordinator
+    networks:
+      - slm_net
+    profiles:
+      - evaluation
+
+networks:
+  slm_net:
+    driver: bridge
+

@@ -115,7 +115,7 @@ async def call_ollama(url: str, model: str, prompt: str, temperature: float = 0.
     """Call Ollama API and return (response_text, latency_seconds)"""
     t0 = time.time()
     
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=180.0) as client:
         try:
             response = await client.post(
                 f"{url}/api/generate",
@@ -359,6 +359,10 @@ async def summarize(request: SummarizeRequest):
         # Fallback: use first candidate
         best_summary = candidates[0]["summary"] if candidates else "ERROR: No responses"
         consensus_metadata = {"method": "fallback", "reason": "insufficient_candidates"}
+    
+    # Add swarm configuration metadata
+    consensus_metadata["num_workers"] = len(WORKERS)
+    consensus_metadata["swarm_type"] = SWARM_TYPE
     
     total_latency = time.time() - t0
     

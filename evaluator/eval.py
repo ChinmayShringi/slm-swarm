@@ -151,27 +151,6 @@ def compute_bertscore(references: List[str], hypotheses: List[str]) -> Dict[str,
         }
 
 
-def estimate_cost(text: str, model_type: str) -> float:
-    """
-    Estimate cost based on token count and model pricing
-    Rough estimates (as of 2024):
-    - Small models (7-8B): ~$0.0001 per 1K tokens
-    - Large models (70B): ~$0.0008 per 1K tokens
-    """
-    # Simple token estimation: ~0.75 tokens per word
-    token_count = len(text.split()) * 0.75
-    
-    if model_type == "swarm":
-        # 3 small models + 1 judge
-        cost_per_1k = 0.0001
-        return (token_count / 1000) * cost_per_1k * 4
-    elif model_type == "big":
-        cost_per_1k = 0.0008
-        return (token_count / 1000) * cost_per_1k
-    else:
-        return 0.0
-
-
 def load_checkpoint(run_dir: Path) -> set:
     """Load already processed IDs from checkpoint"""
     outputs_file = run_dir / "outputs.jsonl"
@@ -424,12 +403,14 @@ def run_evaluation():
     if consensus_confidences:
         metrics["swarm_consensus_confidence"] = float(np.mean(consensus_confidences))
     
-    # Cost estimates (use all_results)
-    total_tokens_swarm = sum(len((r["message"] + r["swarm_summary"]).split()) for r in all_results) * 0.75
-    total_tokens_big = sum(len((r["message"] + r["big_summary"]).split()) for r in all_results if r["big_summary"] != "DISABLED") * 0.75
+    # Token statistics (measured, not cost estimates)
+    total_words_input = sum(len(r["message"].split()) for r in all_results)
+    total_words_output_swarm = sum(len(r["swarm_summary"].split()) for r in all_results if not r["swarm_summary"].startswith("ERROR"))
+    total_words_output_big = sum(len(r["big_summary"].split()) for r in all_results if r["big_summary"] != "DISABLED" and not r["big_summary"].startswith("ERROR"))
     
-    metrics["swarm_estimated_cost"] = (total_tokens_swarm / 1000) * 0.0001 * 4  # 3 workers + judge
-    metrics["big_estimated_cost"] = (total_tokens_big / 1000) * 0.0008
+    metrics["avg_input_words"] = total_words_input / len(all_results) if all_results else 0
+    metrics["avg_output_words_swarm"] = total_words_output_swarm / len(all_results) if all_results else 0
+    metrics["avg_output_words_big"] = total_words_output_big / len([r for r in all_results if r["big_summary"] != "DISABLED"]) if any(r["big_summary"] != "DISABLED" for r in all_results) else 0
     
     # Sample counts
     metrics["total_samples"] = len(all_results)
@@ -504,19 +485,19 @@ def generate_summary_markdown(metrics: Dict[str, float], run_id: str) -> str:
 | Outlier Detection Rate | {metrics.get('swarm_outlier_detected_rate', 0):.2%} |
 | Consensus Confidence | {metrics.get('swarm_consensus_confidence', 0):.4f} |
 
-## Cost Estimate (USD)
+## Computational Statistics
 
-| System | Estimated Cost |
-|--------|---------------|
-| Swarm | ${metrics.get('swarm_estimated_cost', 0):.4f} |
-| Big Model | ${metrics.get('big_estimated_cost', 0):.4f} |
+| Metric | Value |
+|--------|-------|
+| Avg Input Length (words) | {metrics.get('avg_input_words', 0):.1f} |
+| Avg Output Length (words) | {metrics.get('avg_output_words_swarm', 0):.1f} |
 
 ## Key Findings
 
-1. **Quality**: {'Swarm' if metrics.get('swarm_rougeL_f1', 0) > metrics.get('big_rougeL_f1', 0) else 'Big Model'} achieves higher ROUGE-L F1 score
-2. **Speed**: {'Swarm' if metrics.get('swarm_latency_p50', 999) < metrics.get('big_latency_p50', 999) else 'Big Model'} is faster (median latency)
-3. **Cost**: {'Swarm' if metrics.get('swarm_estimated_cost', 999) < metrics.get('big_estimated_cost', 999) else 'Big Model'} is more cost-effective
-4. **Reliability**: {'Swarm' if metrics.get('swarm_hallucination_rate', 1) < metrics.get('big_hallucination_rate', 1) else 'Big Model'} has lower hallucination rate
+1. **Quality (ROUGE-L)**: {metrics.get('swarm_rougeL_f1', 0):.4f}
+2. **Semantic Similarity (BERTScore)**: {metrics.get('swarm_bertscore_f1', 0):.4f}
+3. **Consensus Strength**: {metrics.get('swarm_consensus_avg_similarity', 0):.4f}
+4. **Throughput**: {metrics.get('total_samples', 0) / (metrics.get('swarm_latency_mean', 1) * metrics.get('total_samples', 1) / 60):.2f} examples/minute
 
 ---
 

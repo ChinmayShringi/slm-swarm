@@ -1,0 +1,179 @@
+version: "3.8"
+
+# Homogeneous swarm: 12 workers (all Qwen 2.5 7B) with temperature variation
+
+services:
+  worker_1:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_1
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_2:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_2
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_3:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_3
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_4:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_4
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_5:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_5
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_6:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_6
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_7:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_7
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_8:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_8
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_9:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_9
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_10:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_10
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_11:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_11
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  worker_12:
+    image: ollama/ollama:latest
+    container_name: homo12_worker_12
+    volumes:
+      - ./models/qwen:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - slm_net
+
+  coordinator:
+    build: ./coordinator
+    container_name: homo12_coordinator
+    environment:
+      - WORKERS=["http://worker_1:11434","http://worker_2:11434","http://worker_3:11434","http://worker_4:11434","http://worker_5:11434","http://worker_6:11434","http://worker_7:11434","http://worker_8:11434","http://worker_9:11434","http://worker_10:11434","http://worker_11:11434","http://worker_12:11434"]
+      - MODELS=["qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct","qwen2.5:7b-instruct"]
+      - WORKER_TEMPERATURES=[0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.75,0.8,0.85,0.9]
+      - CONSENSUS_METHOD=cosine
+      - CONSENSUS_THRESHOLD=0.3
+      - SWARM_TYPE=homogeneous
+      - BIGMODEL_URL=${BIGMODEL_URL:-}
+      - BIGMODEL_MODEL=${BIGMODEL_MODEL:-}
+      - BIGMODEL_TYPE=${BIGMODEL_TYPE:-openai}
+      - BIGMODEL_API_KEY=${BIGMODEL_API_KEY:-}
+    depends_on:
+      - worker_1
+      - worker_2
+      - worker_3
+      - worker_4
+      - worker_5
+      - worker_6
+      - worker_7
+      - worker_8
+      - worker_9
+      - worker_10
+      - worker_11
+      - worker_12
+    ports:
+      - "8112:8000"
+    networks:
+      - slm_net
+
+  evaluator:
+    build: ./evaluator
+    container_name: homo12_evaluator
+    environment:
+      - COORDINATOR_URL=http://coordinator:8000
+      - DATASET_PATH=/app/dataset/samsum.jsonl
+      - RESULTS_DIR=/app/results
+      - ENABLE_BIG_MODEL=false
+    volumes:
+      - ./dataset:/app/dataset
+      - ./results:/app/results
+    depends_on:
+      - coordinator
+    networks:
+      - slm_net
+    profiles:
+      - evaluation
+
+networks:
+  slm_net:
+    driver: bridge
+

@@ -1,9 +1,11 @@
 version: "3.8"
 
+# Heterogeneous swarm: 3 workers (Qwen, Llama, Mistral)
+
 services:
   worker_qwen:
     image: ollama/ollama:latest
-    container_name: worker_qwen
+    container_name: hetero3_worker_qwen
     volumes:
       - ./models/qwen:/root/.ollama
     environment:
@@ -13,7 +15,7 @@ services:
 
   worker_llama:
     image: ollama/ollama:latest
-    container_name: worker_llama
+    container_name: hetero3_worker_llama
     volumes:
       - ./models/llama:/root/.ollama
     environment:
@@ -23,7 +25,7 @@ services:
 
   worker_mistral:
     image: ollama/ollama:latest
-    container_name: worker_mistral
+    container_name: hetero3_worker_mistral
     volumes:
       - ./models/mistral:/root/.ollama
     environment:
@@ -31,54 +33,37 @@ services:
     networks:
       - slm_net
 
-  judge_phi:
-    image: ollama/ollama:latest
-    container_name: judge_phi
-    volumes:
-      - ./models/phi:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-    networks:
-      - slm_net
-
   coordinator:
     build: ./coordinator
-    container_name: coordinator
+    container_name: hetero3_coordinator
     environment:
       - WORKERS=["http://worker_qwen:11434","http://worker_llama:11434","http://worker_mistral:11434"]
-      - MODELS=["qwen2.5:7b-instruct","qwen2.5:7b-instruct","mistral:7b-instruct"]
-      - WORKER_TEMPERATURES=[0.2,0.5,0.2]
-      - JUDGE=http://judge_phi:11434
-      - JUDGE_MODEL=phi3:3.8b
-      - CONSENSUS_METHOD=${CONSENSUS_METHOD:-cosine}
-      - CONSENSUS_THRESHOLD=${CONSENSUS_THRESHOLD:-0.3}
+      - MODELS=["qwen2.5:7b-instruct","llama3.1:8b","mistral:7b-instruct"]
+      - WORKER_TEMPERATURES=[0.2,0.2,0.2]
+      - CONSENSUS_METHOD=cosine
+      - CONSENSUS_THRESHOLD=0.3
       - SWARM_TYPE=heterogeneous
-      - ADVERSARIAL_MODE=${ADVERSARIAL_MODE:-false}
-      - ADVERSARIAL_WORKER_IDX=${ADVERSARIAL_WORKER_IDX:-2}
-      - ADVERSARIAL_SUMMARY=${ADVERSARIAL_SUMMARY:-}
       - BIGMODEL_URL=${BIGMODEL_URL:-}
-      - BIGMODEL_MODEL=${BIGMODEL_MODEL:-llama-3.1-70b-instruct}
+      - BIGMODEL_MODEL=${BIGMODEL_MODEL:-}
       - BIGMODEL_TYPE=${BIGMODEL_TYPE:-openai}
       - BIGMODEL_API_KEY=${BIGMODEL_API_KEY:-}
-      - GPT4_API_KEY=${GPT4_API_KEY:-}
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
     depends_on:
       - worker_qwen
       - worker_llama
       - worker_mistral
-      - judge_phi
     ports:
-      - "8000:8000"
+      - "8003:8000"
     networks:
       - slm_net
 
   evaluator:
     build: ./evaluator
-    container_name: evaluator
+    container_name: hetero3_evaluator
     environment:
       - COORDINATOR_URL=http://coordinator:8000
-      - DATASET_PATH=${DATASET_PATH:-/app/dataset/messages.jsonl}
+      - DATASET_PATH=/app/dataset/samsum.jsonl
       - RESULTS_DIR=/app/results
+      - ENABLE_BIG_MODEL=false
     volumes:
       - ./dataset:/app/dataset
       - ./results:/app/results
