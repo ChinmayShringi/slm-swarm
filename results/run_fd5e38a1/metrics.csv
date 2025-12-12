@@ -1,2 +1,0 @@
-swarm_latency_p50,swarm_latency_p95,swarm_latency_mean,big_hallucination_rate,swarm_outlier_detected_rate,avg_input_words,avg_output_words_swarm,avg_output_words_big,total_samples,swarm_valid_samples,big_valid_samples,examples_processed_this_run
-150.10044479370117,150.10095727443695,150.10049974670923,1.0,0.0,95.5079365079365,0.0,0,819,0,0,819
