@@ -1,0 +1,2 @@
+swarm_rouge1_f1,swarm_rouge2_f1,swarm_rougeL_f1,swarm_bertscore_precision,swarm_bertscore_recall,swarm_bertscore_f1,swarm_latency_p50,swarm_latency_p95,swarm_latency_mean,swarm_hallucination_rate,swarm_consensus_avg_similarity,swarm_outlier_detected_rate,swarm_consensus_confidence,total_samples,swarm_valid_samples,examples_processed_this_run
+0.3856107580035811,0.13052879884036872,0.3051041275691557,0.9012174010276794,0.9018585085868835,0.9013736844062805,7.831264972686768,11.753452181816094,8.065848417480058,0.36996336996337,0.7316493189912237,0.0,0.0,819,819,819

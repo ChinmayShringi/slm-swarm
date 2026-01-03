@@ -49,19 +49,17 @@ def load_dataset(path: str) -> List[Dict[str, Any]]:
     return dataset
 
 
-def call_endpoint(endpoint: str, payload: Dict[str, Any], timeout: int = 150) -> tuple[Dict[str, Any], float]:
-    """Call coordinator endpoint and return (response, latency)"""
+def call_endpoint(endpoint: str, payload: Dict[str, Any], timeout: int = None) -> tuple[Dict[str, Any], float]:
+    """Call coordinator endpoint and return (response, latency). No timeout - let it work naturally."""
     url = f"{COORDINATOR_URL}{endpoint}"
     t0 = time.time()
     
     try:
-        response = requests.post(url, json=payload, timeout=timeout)
+        # No timeout parameter - let requests work naturally
+        response = requests.post(url, json=payload)
         response.raise_for_status()
         latency = time.time() - t0
         return response.json(), latency
-    except requests.exceptions.Timeout:
-        latency = time.time() - t0
-        return {"error": "timeout"}, latency
     except requests.exceptions.RequestException as e:
         latency = time.time() - t0
         return {"error": str(e)}, latency
@@ -204,15 +202,28 @@ def run_evaluation():
                 print(f"Last error: {e}")
                 return
     
-    # Create or resume run directory
+    # Get swarm size from coordinator health
+    try:
+        health = requests.get(f"{COORDINATOR_URL}/health", timeout=5)
+        health_data = health.json()
+        num_workers = health_data.get("workers", 0)
+    except Exception as e:
+        print(f"Warning: Could not get worker count from coordinator: {e}")
+        num_workers = 0
+    
+    # Extract dataset name from path (e.g., "messages_small" from "dataset/messages_small.jsonl")
+    dataset_name = Path(DATASET_PATH).stem  # Gets filename without extension
+    
+    # Create or resume run directory with new structure: results/<dataset_name>/<timestamp>_<workers>/
     if RUN_ID:
         run_id = RUN_ID
         print(f"Resuming run: {run_id}")
     else:
-        run_id = uuid.uuid4().hex[:8]
-        print(f"Starting new run: {run_id}")
+        timestamp = int(time.time())
+        run_id = f"{timestamp}_{num_workers}"
+        print(f"Starting new run: {run_id} (workers: {num_workers})")
     
-    run_dir = Path(RESULTS_DIR) / f"run_{run_id}"
+    run_dir = Path(RESULTS_DIR) / dataset_name / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     
     # Load checkpoint (already processed IDs)

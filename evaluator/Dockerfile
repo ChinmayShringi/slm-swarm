@@ -13,8 +13,10 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 # Try installing ML packages
 RUN pip install --no-cache-dir transformers || true
-RUN pip install --no-cache-dir rouge-score || true  
+RUN pip install --no-cache-dir rouge-score || true
 RUN pip install --no-cache-dir bert-score || true
+RUN pip install --no-cache-dir spacy scipy || true
+RUN python -m spacy download en_core_web_sm || true
 
 COPY eval.py .
 RUN mkdir -p /app/dataset /app/results

@@ -114,8 +114,9 @@ class CompareResponse(BaseModel):
 async def call_ollama(url: str, model: str, prompt: str, temperature: float = 0.2, max_tokens: int = 200) -> tuple[str, float]:
     """Call Ollama API and return (response_text, latency_seconds)"""
     t0 = time.time()
-    
-    async with httpx.AsyncClient(timeout=180.0) as client:
+
+    # Use 600 second timeout for CPU inference (can take 3+ minutes per sample)
+    async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=30.0)) as client:
         try:
             response = await client.post(
                 f"{url}/api/generate",
@@ -134,10 +135,6 @@ async def call_ollama(url: str, model: str, prompt: str, temperature: float = 0.
             text = data.get("response", "").strip()
             latency = time.time() - t0
             return text, latency
-        except httpx.TimeoutException as e:
-            latency = time.time() - t0
-            print(f"Timeout calling {url} with model {model}: {e}")
-            return f"ERROR: Timeout after {latency:.1f}s", latency
         except Exception as e:
             latency = time.time() - t0
             error_msg = str(e) if str(e) else type(e).__name__
@@ -315,7 +312,7 @@ async def summarize(request: SummarizeRequest):
     tasks = []
     for i, (worker_url, model_name) in enumerate(zip(WORKERS, MODELS)):
         temp = WORKER_TEMPERATURES[i] if i < len(WORKER_TEMPERATURES) else 0.2
-        tasks.append(call_ollama(worker_url, model_name, prompt, temperature=temp, max_tokens=25))
+        tasks.append(call_ollama(worker_url, model_name, prompt, temperature=temp, max_tokens=150))
     
     # Collect responses
     results = await asyncio.gather(*tasks, return_exceptions=True)

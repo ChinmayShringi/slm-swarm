@@ -64,6 +64,8 @@ services:
       - DATASET_PATH=/app/dataset/samsum.jsonl
       - RESULTS_DIR=/app/results
       - ENABLE_BIG_MODEL=false
+      - RUN_ID=${RUN_ID:-}
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./dataset:/app/dataset
       - ./results:/app/results
